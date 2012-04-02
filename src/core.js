@@ -1830,10 +1830,8 @@ Strophe.Connection.prototype = {
 		this.protocol.finish()
 
         // tell the parent we disconnected
-        if (this.connected) {
-            this.changeConnectStatus(Strophe.Status.DISCONNECTED, null);
-            this.connected = false;
-        }
+        this.changeConnectStatus(Strophe.Status.DISCONNECTED, null);
+        this.connected = false;
 
         // delete handlers
         this.handlers = [];
