@@ -94,7 +94,7 @@ Strophe.Websocket.prototype = {
      *    () error - The websocket error.
      */
 	_onError: function(error) {
-		Strophe.log("Websocket error " + error)
+		console.log("ERROR : " + error)
 	},
 
 	/** PrivateFunction: _onOpen
@@ -102,7 +102,6 @@ Strophe.Websocket.prototype = {
      *
      */
 	_onOpen: function() {
-		Strophe.log("Websocket open")
 		this.connection.xmlOutput(this._startStream());
         this.connection.rawOutput(this._startStream());
 		this.socket.send(this._startStream());
@@ -113,7 +112,6 @@ Strophe.Websocket.prototype = {
      *
 	 */
 	_onClose: function(event) {
-		Strophe.log("Websocket disconnected")
 		this.connection._doDisconnect()
 	},
 	
