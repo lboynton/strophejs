@@ -3,16 +3,20 @@
   <head>
     <title>Strophe.js Basic Example</title>
     <script src='http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'></script>
-    <script src='../strophe.js'></script>
+    <script src='../src/core.js'></script>
+	<script src='../src/md5.js'></script>
+	<script src='../src/sha1.js'></script>
+	<script src='../src/bosh.js'></script>
+	<script src='../src/websocket.js'></script>
     <script src='basic.js'></script>
   </head>
   <body>
     <div id='login' style='text-align: center'>
       <form name='cred'>
         <label for='jid'>JID:</label>
-        <input type='text' id='jid'>
+        <input type='text' id='jid' value="lee@localhost">
         <label for='pass'>Password:</label>
-        <input type='password' id='pass'>
+        <input type='password' id='pass' value="lee">
         <input type='button' id='connect' value='connect'>
       </form>
     </div>

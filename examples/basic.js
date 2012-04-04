@@ -1,4 +1,5 @@
-var BOSH_SERVICE = 'http://bosh.metajack.im:5280/xmpp-httpbind'
+var BOSH_SERVICE = 'http://localhost:5280/http-bind';
+var WS_SERVICE = 'ws://localhost:5281/ws-xmpp';
 var connection = null;
 
 function log(msg) 
@@ -35,7 +36,7 @@ function onConnect(status)
 }
 
 $(document).ready(function () {
-    connection = new Strophe.Connection(BOSH_SERVICE);
+    connection = new Strophe.Connection(BOSH_SERVICE, WS_SERVICE);
     connection.rawInput = rawInput;
     connection.rawOutput = rawOutput;
 
