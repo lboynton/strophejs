@@ -355,12 +355,32 @@ $(document).ready(function () {
 
   test("SHA1", 7, function()
   {
-     equal(typeof SHA1, 'object');
-     equal(typeof SHA1.b64_sha1, 'function');
-     equal(typeof SHA1.str_sha1, 'function');
-     equal(typeof SHA1.b64_hmac_sha1, 'function');
-     equal(typeof SHA1.str_hmac_sha1, 'function');
-     equal(typeof SHA1.core_hmac_sha1, 'function');
-     equal(typeof SHA1.binb2str, 'function');
+     equal(typeof window.SHA1, 'object');
+     equal(typeof window.SHA1.b64_sha1, 'function');
+     equal(typeof window.SHA1.str_sha1, 'function');
+     equal(typeof window.SHA1.b64_hmac_sha1, 'function');
+     equal(typeof window.SHA1.str_hmac_sha1, 'function');
+     equal(typeof window.SHA1.core_hmac_sha1, 'function');
+     equal(typeof window.SHA1.binb2str, 'function');
+  });
+
+  test("$build", 1, function()
+  {
+    equal(typeof window.$build, 'function');
+  });
+
+  test("$pres", 1, function()
+  {
+    equal(typeof window.$pres, 'function');
+  });
+
+  test("$iq", 1, function()
+  {
+    equal(typeof window.$iq, 'function');
+  });
+
+  test("$msg", 1, function()
+  {
+    equal(typeof window.$msg, 'function');
   });
 });

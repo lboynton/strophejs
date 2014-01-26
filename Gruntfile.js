@@ -24,7 +24,7 @@ module.exports = function(grunt){
 
         concat: {
             dist: {
-                src: ['src/base64.js', "src/sha1.js", "src/md5.js", "src/core.js", "src/bosh.js", "src/websocket.js" ],
+                src: ['src/base64.js', "src/sha1.js", "src/md5.js", "src/core.js", "src/build.js", "src/pres.js", "src/iq.js", "src/msg.js", "src/bosh.js", "src/websocket.js" ],
                 dest: '<%= pkg.name %>'
             },
             options: {
