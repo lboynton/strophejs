@@ -345,4 +345,11 @@ $(document).ready(function () {
     equal(typeof window.Base64.decode, 'function');
     equal(typeof window.Base64.encode, 'function');
   });
+
+  test("MD5", 3, function()
+  {
+    equal(typeof window.MD5, 'object');
+    equal(typeof window.MD5.hexdigest, 'function');
+    equal(typeof window.MD5.hash, 'function');
+  });
 });
