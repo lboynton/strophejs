@@ -5,20 +5,24 @@
     Copyright 2006-2008, OGG, LLC
 */
 
-/* jslint configuration: */
+/* jshint undef: true, unused: true:, noarg: true, latedef: true */
 /*global document, window, setTimeout, clearTimeout, console,
-    XMLHttpRequest, ActiveXObject,
-    Base64, MD5,
-    Strophe, $build, $msg, $iq, $pres */
+    ActiveXObject, Base64, MD5, DOMParser */
+// from sha1.js
+/*global core_hmac_sha1, binb2str, str_hmac_sha1, str_sha1, b64_hmac_sha1*/
 
 /** File: strophe.js
- *  A JavaScript library for XMPP BOSH.
+ *  A JavaScript library for XMPP BOSH/XMPP over Websocket.
  *
  *  This is the JavaScript version of the Strophe library.  Since JavaScript
- *  has no facilities for persistent TCP connections, this library uses
+ *  had no facilities for persistent TCP connections, this library uses
  *  Bidirectional-streams Over Synchronous HTTP (BOSH) to emulate
  *  a persistent, stateful, two-way connection to an XMPP server.  More
  *  information on BOSH can be found in XEP 124.
+ *
+ *  This version of Strophe also works with WebSockets.
+ *  For more information on XMPP-over WebSocket see this RFC draft:
+ *  http://tools.ietf.org/html/draft-ietf-xmpp-websocket-00
  */
 
 /** PrivateFunction: Function.prototype.bind
@@ -27,7 +31,7 @@
  *  This Function object extension method creates a bound method similar
  *  to those in Python.  This means that the 'this' object will point
  *  to the instance you want.  See
- *  <a href='https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/bind'>MDC's bind() documentation</a> and 
+ *  <a href='https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/bind'>MDC's bind() documentation</a> and
  *  <a href='http://benjamin.smedbergs.us/blog/2007-01-03/bound-functions-and-function-imports-in-javascript/'>Bound Functions and Function Imports in JavaScript</a>
  *  for a complete explanation.
  *
@@ -36,7 +40,7 @@
  *
  *  Parameters:
  *    (Object) obj - The object that will become 'this' in the bound function.
- *    (Object) argN - An option argument that will be prepended to the 
+ *    (Object) argN - An option argument that will be prepended to the
  *      arguments given for the function call
  *
  *  Returns:
@@ -200,76 +204,59 @@ Strophe = {
     },
 
 
-    /** Constants: XHTML_IM Namespace 
-     *  contains allowed tags, tag attributes, and css properties. 
+    /** Constants: XHTML_IM Namespace
+     *  contains allowed tags, tag attributes, and css properties.
      *  Used in the createHtml function to filter incoming html into the allowed XHTML-IM subset.
      *  See http://xmpp.org/extensions/xep-0071.html#profile-summary for the list of recommended
      *  allowed tags and their attributes.
      */
     XHTML: {
-		tags: ['a','blockquote','br','cite','em','img','li','ol','p','span','strong','ul','body'],
-		attributes: {
-			'a':          ['href'],
-			'blockquote': ['style'],
-			'br':         [],
-			'cite':       ['style'],
-			'em':         [],
-			'img':        ['src', 'alt', 'style', 'height', 'width'],
-			'li':         ['style'],
-			'ol':         ['style'],
-			'p':          ['style'],
-			'span':       ['style'],
-			'strong':     [],
-			'ul':         ['style'],
-			'body':       []
-		},
-		css: ['background-color','color','font-family','font-size','font-style','font-weight','margin-left','margin-right','text-align','text-decoration'],
-		validTag: function(tag)
-		{
-			for(var i = 0; i < Strophe.XHTML.tags.length; i++) {
-				if(tag == Strophe.XHTML.tags[i]) {
-					return true;
-				}
-			}
-			return false;
-		},
-		validAttribute: function(tag, attribute)
-		{
-			if(typeof Strophe.XHTML.attributes[tag] !== 'undefined' && Strophe.XHTML.attributes[tag].length > 0) {
-				for(var i = 0; i < Strophe.XHTML.attributes[tag].length; i++) {
-					if(attribute == Strophe.XHTML.attributes[tag][i]) {
-						return true;
-					}
-				}
-			}
-			return false;
-		},
-		validCSS: function(style)
-		{
-			for(var i = 0; i < Strophe.XHTML.css.length; i++) {
-				if(style == Strophe.XHTML.css[i]) {
-					return true;
-				}
-			}
-			return false;
-		}
-    },
-
-    /** Function: addNamespace 
-     *  This function is used to extend the current namespaces in
-     *	Strophe.NS.  It takes a key and a value with the key being the
-     *	name of the new namespace, with its actual value.
-     *	For example:
-     *	Strophe.addNamespace('PUBSUB', "http://jabber.org/protocol/pubsub");
-     *
-     *  Parameters:
-     *    (String) name - The name under which the namespace will be
-     *      referenced under Strophe.NS
-     *    (String) value - The actual namespace.
-     */
-    addNamespace: function (name, value)
-    {
-	    Strophe.NS[name] = value;
+                tags: ['a','blockquote','br','cite','em','img','li','ol','p','span','strong','ul','body'],
+                attributes: {
+                        'a':          ['href'],
+                        'blockquote': ['style'],
+                        'br':         [],
+                        'cite':       ['style'],
+                        'em':         [],
+                        'img':        ['src', 'alt', 'style', 'height', 'width'],
+                        'li':         ['style'],
+                        'ol':         ['style'],
+                        'p':          ['style'],
+                        'span':       ['style'],
+                        'strong':     [],
+                        'ul':         ['style'],
+                        'body':       []
+                },
+                css: ['background-color','color','font-family','font-size','font-style','font-weight','margin-left','margin-right','text-align','text-decoration'],
+                validTag: function(tag)
+                {
+                        for(var i = 0; i < Strophe.XHTML.tags.length; i++) {
+                                if(tag == Strophe.XHTML.tags[i]) {
+                                        return true;
+                                }
+                        }
+                        return false;
+                },
+                validAttribute: function(tag, attribute)
+                {
+                        if(typeof Strophe.XHTML.attributes[tag] !== 'undefined' && Strophe.XHTML.attributes[tag].length > 0) {
+                                for(var i = 0; i < Strophe.XHTML.attributes[tag].length; i++) {
+                                        if(attribute == Strophe.XHTML.attributes[tag][i]) {
+                                                return true;
+                                        }
+                                }
+                        }
+                        return false;
+                },
+                validCSS: function(style)
+                {
+                        for(var i = 0; i < Strophe.XHTML.css.length; i++) {
+                                if(style == Strophe.XHTML.css[i]) {
+                                        return true;
+                                }
+                        }
+                        return false;
+                }
     },
 
     /** Constants: Connection Status Constants
@@ -346,6 +333,23 @@ Strophe = {
     TIMEOUT: 1.1,
     SECONDARY_TIMEOUT: 0.1,
 
+    /** Function: addNamespace
+     *  This function is used to extend the current namespaces in
+     *  Strophe.NS.  It takes a key and a value with the key being the
+     *  name of the new namespace, with its actual value.
+     *  For example:
+     *  Strophe.addNamespace('PUBSUB', "http://jabber.org/protocol/pubsub");
+     *
+     *  Parameters:
+     *    (String) name - The name under which the namespace will be
+     *      referenced under Strophe.NS
+     *    (String) value - The actual namespace.
+     */
+    addNamespace: function (name, value)
+    {
+      Strophe.NS[name] = value;
+    },
+
     /** Function: forEachChild
      *  Map a function over some or all child elements of a given element.
      *
@@ -405,10 +409,10 @@ Strophe = {
         var doc;
 
         // IE9 does implement createDocument(); however, using it will cause the browser to leak memory on page unload.
-        // Here, we test for presence of createDocument() plus IE's proprietary documentMode attribute, which would be 
-		// less than 10 in the case of IE9 and below.
-        if (document.implementation.createDocument === undefined || 
-			document.implementation.createDocument && document.documentMode && document.documentMode < 10) {
+        // Here, we test for presence of createDocument() plus IE's proprietary documentMode attribute, which would be
+                // less than 10 in the case of IE9 and below.
+        if (document.implementation.createDocument === undefined ||
+                        document.implementation.createDocument && document.documentMode && document.documentMode < 10) {
             doc = this._getIEXmlDom();
             doc.appendChild(doc.createElement('strophe'));
         } else {
@@ -526,7 +530,7 @@ Strophe = {
      *  Parameters:
      *     (String) text - text to escape.
      *
-     *	Returns:
+     *  Returns:
      *      Escaped text.
      */
     xmlescape: function(text)
@@ -566,9 +570,10 @@ Strophe = {
      */
     xmlHtmlNode: function (html)
     {
+        var node;
         //ensure text is escaped
         if (window.DOMParser) {
-            parser = new DOMParser();
+            var parser = new DOMParser();
             node = parser.parseFromString(html, "text/xml");
         } else {
             node = new ActiveXObject("Microsoft.XMLDOM");
@@ -654,7 +659,7 @@ Strophe = {
      */
     createHtml: function (elem)
     {
-        var i, el, j, tag, attribute, value, css, cssAttrs, attr, cssName, cssValue, children, child;
+        var i, el, j, tag, attribute, value, css, cssAttrs, attr, cssName, cssValue;
         if (elem.nodeType == Strophe.ElementType.NORMAL) {
             tag = elem.nodeName.toLowerCase();
             if(Strophe.XHTML.validTag(tag)) {
@@ -859,10 +864,12 @@ Strophe = {
      *      be one of the values in Strophe.LogLevel.
      *    (String) msg - The log message.
      */
+    /* jshint ignore:start */
     log: function (level, msg)
     {
         return;
     },
+    /* jshint ignore:end */
 
     /** Function: debug
      *  Log a message at the Strophe.LogLevel.DEBUG level.
@@ -1177,12 +1184,13 @@ Strophe.Builder.prototype = {
      */
     cnode: function (elem)
     {
+        var impNode;
         var xmlGen = Strophe.xmlGenerator();
         try {
-            var impNode = (xmlGen.importNode !== undefined);
+            impNode = (xmlGen.importNode !== undefined);
         }
         catch (e) {
-            var impNode = false;
+            impNode = false;
         }
         var newElem = impNode ?
                       xmlGen.importNode(elem, true) :
@@ -1275,8 +1283,8 @@ Strophe.Handler = function (handler, ns, name, type, id, from, options)
     this.name = name;
     this.type = type;
     this.id = id;
-    this.options = options || {matchbare: false};
-    
+    this.options = options || {matchBare: false};
+
     // default matchBare to false if undefined
     if (!this.options.matchBare) {
         this.options.matchBare = false;
@@ -1306,7 +1314,7 @@ Strophe.Handler.prototype = {
     {
         var nsMatch;
         var from = null;
-        
+
         if (this.options.matchBare) {
             from = Strophe.getBareJidFromJid(elem.getAttribute('from'));
         } else {
@@ -1457,121 +1465,13 @@ Strophe.TimedHandler.prototype = {
     }
 };
 
-/** PrivateClass: Strophe.Request
- *  _Private_ helper class that provides a cross implementation abstraction
- *  for a BOSH related XMLHttpRequest.
- *
- *  The Strophe.Request class is used internally to encapsulate BOSH request
- *  information.  It is not meant to be used from user's code.
- */
-
-/** PrivateConstructor: Strophe.Request
- *  Create and initialize a new Strophe.Request object.
- *
- *  Parameters:
- *    (XMLElement) elem - The XML data to be sent in the request.
- *    (Function) func - The function that will be called when the
- *      XMLHttpRequest readyState changes.
- *    (Integer) rid - The BOSH rid attribute associated with this request.
- *    (Integer) sends - The number of times this same request has been
- *      sent.
- */
-Strophe.Request = function (elem, func, rid, sends)
-{
-    this.id = ++Strophe._requestId;
-    this.xmlData = elem;
-    this.data = Strophe.serialize(elem);
-    // save original function in case we need to make a new request
-    // from this one.
-    this.origFunc = func;
-    this.func = func;
-    this.rid = rid;
-    this.date = NaN;
-    this.sends = sends || 0;
-    this.abort = false;
-    this.dead = null;
-    this.age = function () {
-        if (!this.date) { return 0; }
-        var now = new Date();
-        return (now - this.date) / 1000;
-    };
-    this.timeDead = function () {
-        if (!this.dead) { return 0; }
-        var now = new Date();
-        return (now - this.dead) / 1000;
-    };
-    this.xhr = this._newXHR();
-};
-
-Strophe.Request.prototype = {
-    /** PrivateFunction: getResponse
-     *  Get a response from the underlying XMLHttpRequest.
-     *
-     *  This function attempts to get a response from the request and checks
-     *  for errors.
-     *
-     *  Throws:
-     *    "parsererror" - A parser error occured.
-     *
-     *  Returns:
-     *    The DOM element tree of the response.
-     */
-    getResponse: function ()
-    {
-        var node = null;
-        if (this.xhr.responseXML && this.xhr.responseXML.documentElement) {
-            node = this.xhr.responseXML.documentElement;
-            if (node.tagName == "parsererror") {
-                Strophe.error("invalid response received");
-                Strophe.error("responseText: " + this.xhr.responseText);
-                Strophe.error("responseXML: " +
-                              Strophe.serialize(this.xhr.responseXML));
-                throw "parsererror";
-            }
-        } else if (this.xhr.responseText) {
-            Strophe.error("invalid response received");
-            Strophe.error("responseText: " + this.xhr.responseText);
-            Strophe.error("responseXML: " +
-                          Strophe.serialize(this.xhr.responseXML));
-        }
-
-        return node;
-    },
-
-    /** PrivateFunction: _newXHR
-     *  _Private_ helper function to create XMLHttpRequests.
-     *
-     *  This function creates XMLHttpRequests across all implementations.
-     *
-     *  Returns:
-     *    A new XMLHttpRequest.
-     */
-    _newXHR: function ()
-    {
-        var xhr = null;
-        if (window.XMLHttpRequest) {
-            xhr = new XMLHttpRequest();
-            if (xhr.overrideMimeType) {
-                xhr.overrideMimeType("text/xml");
-            }
-        } else if (window.ActiveXObject) {
-            xhr = new ActiveXObject("Microsoft.XMLHTTP");
-        }
-
-        // use Function.bind() to prepend ourselves as an argument
-        xhr.onreadystatechange = this.func.bind(null, this);
-
-        return xhr;
-    }
-};
-
 /** Class: Strophe.Connection
  *  XMPP Connection manager.
  *
  *  This class is the main part of Strophe.  It manages a BOSH connection
  *  to an XMPP server and dispatches events to the user callbacks as
- *  data arrives.  It supports SASL PLAIN, SASL DIGEST-MD5, and legacy
- *  authentication.
+ *  data arrives.  It supports SASL PLAIN, SASL DIGEST-MD5, SASL SCRAM-SHA1
+ *  and legacy authentication.
  *
  *  After creating a Strophe.Connection object, the user will typically
  *  call connect() with a user supplied callback to handle connection level
@@ -1590,30 +1490,75 @@ Strophe.Request.prototype = {
 /** Constructor: Strophe.Connection
  *  Create and initialize a Strophe.Connection object.
  *
+ *  The transport-protocol for this connection will be chosen automatically
+ *  based on the given service parameter. URLs starting with "ws://" or
+ *  "wss://" will use WebSockets, URLs starting with "http://", "https://"
+ *  or without a protocol will use BOSH.
+ *
+ *  To make Strophe connect to the current host you can leave out the protocol
+ *  and host part and just pass the path, e.g.
+ *
+ *  > var conn = new Strophe.Connection("/http-bind/");
+ *
+ *  WebSocket options:
+ *
+ *  If you want to connect to the current host with a WebSocket connection you
+ *  can tell Strophe to use WebSockets through a "protocol" attribute in the
+ *  optional options parameter. Valid values are "ws" for WebSocket and "wss"
+ *  for Secure WebSocket.
+ *  So to connect to "wss://CURRENT_HOSTNAME/xmpp-websocket" you would call
+ *
+ *  > var conn = new Strophe.Connection("/xmpp-websocket/", {protocol: "wss"});
+ *
+ *  Note that relative URLs _NOT_ starting with a "/" will also include the path
+ *  of the current site.
+ *
+ *  Also because downgrading security is not permitted by browsers, when using
+ *  relative URLs both BOSH and WebSocket connections will use their secure
+ *  variants if the current connection to the site is also secure (https).
+ *
+ *  BOSH options:
+ *
+ *  by adding "sync" to the options, you can control if requests will
+ *  be made synchronously or not. The default behaviour is asynchronous.
+ *  If you want to make requests synchronous, make "sync" evaluate to true:
+ *  > var conn = new Strophe.Connection("/http-bind/", {sync: true});
+ *  You can also toggle this on an already established connection:
+ *  > conn.options.sync = true;
+ *
+ *
  *  Parameters:
- *    (String) service - The BOSH service URL.
+ *    (String) service - The BOSH or WebSocket service URL.
+ *    (Object) options - A hash of configuration options
  *
  *  Returns:
  *    A new Strophe.Connection object.
  */
-Strophe.Connection = function (service)
+Strophe.Connection = function (service, options)
 {
-    /* The path to the httpbind service. */
+    // The service URL
     this.service = service;
+
+    // Configuration options
+    this.options = options || {};
+    var proto = this.options.protocol || "";
+
+    // Select protocal based on service or options
+    if (service.indexOf("ws:") === 0 || service.indexOf("wss:") === 0 ||
+            proto.indexOf("ws") === 0) {
+        this._proto = new Strophe.Websocket(this);
+    } else {
+        this._proto = new Strophe.Bosh(this);
+    }
     /* The connected JID. */
     this.jid = "";
     /* the JIDs domain */
     this.domain = null;
-    /* request id for body tags */
-    this.rid = Math.floor(Math.random() * 4294967295);
-    /* The current session ID. */
-    this.sid = null;
-    this.streamId = null;
     /* stream:features */
     this.features = null;
 
     // SASL
-    this._sasl_data = [];
+    this._sasl_data = {};
     this.do_session = false;
     this.do_bind = false;
 
@@ -1638,14 +1583,8 @@ Strophe.Connection = function (service)
 
     this.paused = false;
 
-    // default BOSH values
-    this.hold = 1;
-    this.wait = 60;
-    this.window = 5;
-
     this._data = [];
-    this._requests = [];
-    this._uniqueId = Math.round(Math.random() * 10000);
+    this._uniqueId = 0;
 
     this._sasl_success_handler = null;
     this._sasl_failure_handler = null;
@@ -1660,12 +1599,12 @@ Strophe.Connection = function (service)
     // initialize plugins
     for (var k in Strophe._connectionPlugins) {
         if (Strophe._connectionPlugins.hasOwnProperty(k)) {
-	    var ptype = Strophe._connectionPlugins[k];
+            var ptype = Strophe._connectionPlugins[k];
             // jslint complaints about the below line, but this is fine
-            var F = function () {};
+            var F = function () {}; // jshint ignore:line
             F.prototype = ptype;
             this[k] = new F();
-	    this[k].init(this);
+            this[k].init(this);
         }
     }
 };
@@ -1679,10 +1618,7 @@ Strophe.Connection.prototype = {
      */
     reset: function ()
     {
-        this.rid = Math.floor(Math.random() * 4294967295);
-
-        this.sid = null;
-        this.streamId = null;
+        this._proto._reset();
 
         // SASL
         this.do_session = false;
@@ -1704,16 +1640,17 @@ Strophe.Connection.prototype = {
         this.errors = 0;
 
         this._requests = [];
-        this._uniqueId = Math.round(Math.random()*10000);
+        this._uniqueId = 0;
     },
 
     /** Function: pause
      *  Pause the request manager.
      *
      *  This will prevent Strophe from sending any more requests to the
-     *  server.  This is very useful for temporarily pausing while a lot
-     *  of send() calls are happening quickly.  This causes Strophe to
-     *  send the data in a single request, saving many request trips.
+     *  server.  This is very useful for temporarily pausing
+     *  BOSH-Connections while a lot of send() calls are happening quickly.
+     *  This causes Strophe to send the data in a single request, saving
+     *  many request trips.
      */
     pause: function ()
     {
@@ -1772,8 +1709,9 @@ Strophe.Connection.prototype = {
      *  constants.  The error condition will be one of the conditions
      *  defined in RFC 3920 or the condition 'strophe-parsererror'.
      *
-     *  Please see XEP 124 for a more detailed explanation of the optional
-     *  parameters below.
+     *  The Parameters _wait_, _hold_ and _route_ are optional and only relevant
+     *  for BOSH connections. Please see XEP 124 for a more detailed explanation
+     *  of the optional parameters.
      *
      *  Parameters:
      *    (String) jid - The user's JID.  This may be a bare JID,
@@ -1787,53 +1725,39 @@ Strophe.Connection.prototype = {
      *    (Integer) hold - The optional HTTPBIND hold value.  This is the
      *      number of connections the server will hold at one time.  This
      *      should almost always be set to 1 (the default).
-	 *    (String) route
+     *    (String) route - The optional route value.
      */
     connect: function (jid, pass, callback, wait, hold, route)
     {
         this.jid = jid;
+        /** Variable: authzid
+         *  Authorization identity.
+         */
+        this.authzid = Strophe.getBareJidFromJid(this.jid);
+        /** Variable: authcid
+         *  Authentication identity (User name).
+         */
+        this.authcid = Strophe.getNodeFromJid(this.jid);
+        /** Variable: pass
+         *  Authentication identity (User password).
+         */
         this.pass = pass;
+        /** Variable: servtype
+         *  Digest MD5 compatibility.
+         */
+        this.servtype = "xmpp";
         this.connect_callback = callback;
         this.disconnecting = false;
         this.connected = false;
         this.authenticated = false;
         this.errors = 0;
 
-        this.wait = wait || this.wait;
-        this.hold = hold || this.hold;
-
-        // parse jid for domain and resource
-        this.domain = this.domain || Strophe.getDomainFromJid(this.jid);
-
-        // build the body tag
-        var body = this._buildBody().attrs({
-            to: this.domain,
-            "xml:lang": "en",
-            wait: this.wait,
-            hold: this.hold,
-            content: "text/xml; charset=utf-8",
-            ver: "1.6",
-            "xmpp:version": "1.0",
-            "xmlns:xmpp": Strophe.NS.BOSH
-        });
-
-		if(route){
-			body.attrs({
-				route: route
-			});
-		}
+        // parse jid for domain
+        this.domain = Strophe.getDomainFromJid(this.jid);
 
         this._changeConnectStatus(Strophe.Status.CONNECTING, null);
 
-        var _connect_cb = this._connect_callback || this._connect_cb;
-        this._connect_callback = null;
-
-        this._requests.push(
-            new Strophe.Request(body.tree(),
-                                this._onRequestStateChange.bind(
-                                    this, _connect_cb.bind(this)),
-                                body.tree().getAttribute("rid")));
-        this._throttledRequestHandler();
+        this._proto._connect(wait, hold, route);
     },
 
     /** Function: attach
@@ -1862,21 +1786,7 @@ Strophe.Connection.prototype = {
      */
     attach: function (jid, sid, rid, callback, wait, hold, wind)
     {
-        this.jid = jid;
-        this.sid = sid;
-        this.rid = rid;
-        this.connect_callback = callback;
-
-        this.domain = Strophe.getDomainFromJid(this.jid);
-
-        this.authenticated = true;
-        this.connected = true;
-
-        this.wait = wait || this.wait;
-        this.hold = hold || this.hold;
-        this.window = wind || this.window;
-
-        this._changeConnectStatus(Strophe.Status.ATTACHED, null);
+        this._proto._attach(jid, sid, rid, callback, wait, hold, wind);
     },
 
     /** Function: xmlInput
@@ -1888,13 +1798,21 @@ Strophe.Connection.prototype = {
      *  >   (user code)
      *  > };
      *
+     *  Due to limitations of current Browsers' XML-Parsers the opening and closing
+     *  <stream> tag for WebSocket-Connoctions will be passed as selfclosing here.
+     *
+     *  BOSH-Connections will have all stanzas wrapped in a <body> tag. See
+     *  <Strophe.Bosh.strip> if you want to strip this tag.
+     *
      *  Parameters:
      *    (XMLElement) elem - The XML data received by the connection.
      */
+    /* jshint unused:false */
     xmlInput: function (elem)
     {
         return;
     },
+    /* jshint unused:true */
 
     /** Function: xmlOutput
      *  User overrideable function that receives XML data sent to the
@@ -1905,13 +1823,21 @@ Strophe.Connection.prototype = {
      *  >   (user code)
      *  > };
      *
+     *  Due to limitations of current Browsers' XML-Parsers the opening and closing
+     *  <stream> tag for WebSocket-Connoctions will be passed as selfclosing here.
+     *
+     *  BOSH-Connections will have all stanzas wrapped in a <body> tag. See
+     *  <Strophe.Bosh.strip> if you want to strip this tag.
+     *
      *  Parameters:
      *    (XMLElement) elem - The XMLdata sent by the connection.
      */
+    /* jshint unused:false */
     xmlOutput: function (elem)
     {
         return;
     },
+    /* jshint unused:true */
 
     /** Function: rawInput
      *  User overrideable function that receives raw data coming into the
@@ -1925,10 +1851,12 @@ Strophe.Connection.prototype = {
      *  Parameters:
      *    (String) data - The data received by the connection.
      */
+    /* jshint unused:false */
     rawInput: function (data)
     {
         return;
     },
+    /* jshint unused:true */
 
     /** Function: rawOutput
      *  User overrideable function that receives raw data sent to the
@@ -1942,10 +1870,12 @@ Strophe.Connection.prototype = {
      *  Parameters:
      *    (String) data - The data sent by the connection.
      */
+    /* jshint unused:false */
     rawOutput: function (data)
     {
         return;
     },
+    /* jshint unused:true */
 
     /** Function: send
      *  Send a stanza.
@@ -1972,9 +1902,7 @@ Strophe.Connection.prototype = {
             this._queueData(elem);
         }
 
-        this._throttledRequestHandler();
-        clearTimeout(this._idleTimeout);
-        this._idleTimeout = setTimeout(this._onIdle.bind(this), 100);
+        this._proto._send();
     },
 
     /** Function: flush
@@ -2014,54 +1942,54 @@ Strophe.Connection.prototype = {
         if (typeof(elem.tree) === "function") {
             elem = elem.tree();
         }
-	var id = elem.getAttribute('id');
+        var id = elem.getAttribute('id');
 
-	// inject id if not found
-	if (!id) {
-	    id = this.getUniqueId("sendIQ");
-	    elem.setAttribute("id", id);
-	}
+        // inject id if not found
+        if (!id) {
+            id = this.getUniqueId("sendIQ");
+            elem.setAttribute("id", id);
+        }
 
-	var handler = this.addHandler(function (stanza) {
-	    // remove timeout handler if there is one
+        var handler = this.addHandler(function (stanza) {
+            // remove timeout handler if there is one
             if (timeoutHandler) {
                 that.deleteTimedHandler(timeoutHandler);
             }
 
             var iqtype = stanza.getAttribute('type');
-	    if (iqtype == 'result') {
-		if (callback) {
+            if (iqtype == 'result') {
+                if (callback) {
                     callback(stanza);
                 }
-	    } else if (iqtype == 'error') {
-		if (errback) {
+            } else if (iqtype == 'error') {
+                if (errback) {
                     errback(stanza);
                 }
-	    } else {
+            } else {
                 throw {
                     name: "StropheError",
-                    message: "Got bad IQ type of " + iqtype
+            message: "Got bad IQ type of " + iqtype
                 };
             }
-	}, null, 'iq', null, id);
+        }, null, 'iq', null, id);
 
-	// if timeout specified, setup timeout handler.
-	if (timeout) {
-	    timeoutHandler = this.addTimedHandler(timeout, function () {
+        // if timeout specified, setup timeout handler.
+        if (timeout) {
+            timeoutHandler = this.addTimedHandler(timeout, function () {
                 // get rid of normal handler
                 that.deleteHandler(handler);
 
-	        // call errback on timeout with null stanza
+                // call errback on timeout with null stanza
                 if (errback) {
-		    errback(null);
+                    errback(null);
                 }
-		return false;
-	    });
-	}
+                return false;
+            });
+        }
 
-	this.send(elem);
+        this.send(elem);
 
-	return id;
+        return id;
     },
 
     /** PrivateFunction: _queueData
@@ -2077,7 +2005,7 @@ Strophe.Connection.prototype = {
                 message: "Cannot queue non-DOMElement."
             };
         }
-        
+
         this._data.push(element);
     },
 
@@ -2088,8 +2016,8 @@ Strophe.Connection.prototype = {
     {
         this._data.push("restart");
 
-        this._throttledRequestHandler();
-        clearTimeout(this._idleTimeout);
+        this._proto._sendRestart();
+
         this._idleTimeout = setTimeout(this._onIdle.bind(this), 100);
     },
 
@@ -2221,10 +2149,18 @@ Strophe.Connection.prototype = {
 
         Strophe.info("Disconnect was called because: " + reason);
         if (this.connected) {
+            var pres = false;
+            this.disconnecting = true;
+            if (this.authenticated) {
+                pres = $pres({
+                    xmlns: Strophe.NS.CLIENT,
+                    type: 'unavailable'
+                });
+            }
             // setup timeout handler
             this._disconnectTimeout = this._addSysTimedHandler(
                 3000, this._onDisconnectTimeout.bind(this));
-            this._sendTerminate();
+            this._proto._disconnect(pres);
         }
     },
 
@@ -2265,324 +2201,6 @@ Strophe.Connection.prototype = {
         }
     },
 
-    /** PrivateFunction: _buildBody
-     *  _Private_ helper function to generate the <body/> wrapper for BOSH.
-     *
-     *  Returns:
-     *    A Strophe.Builder with a <body/> element.
-     */
-    _buildBody: function ()
-    {
-        var bodyWrap = $build('body', {
-            rid: this.rid++,
-            xmlns: Strophe.NS.HTTPBIND
-        });
-
-        if (this.sid !== null) {
-            bodyWrap.attrs({sid: this.sid});
-        }
-
-        return bodyWrap;
-    },
-
-    /** PrivateFunction: _removeRequest
-     *  _Private_ function to remove a request from the queue.
-     *
-     *  Parameters:
-     *    (Strophe.Request) req - The request to remove.
-     */
-    _removeRequest: function (req)
-    {
-        Strophe.debug("removing request");
-
-        var i;
-        for (i = this._requests.length - 1; i >= 0; i--) {
-            if (req == this._requests[i]) {
-                this._requests.splice(i, 1);
-            }
-        }
-
-        // IE6 fails on setting to null, so set to empty function
-        req.xhr.onreadystatechange = function () {};
-
-        this._throttledRequestHandler();
-    },
-
-    /** PrivateFunction: _restartRequest
-     *  _Private_ function to restart a request that is presumed dead.
-     *
-     *  Parameters:
-     *    (Integer) i - The index of the request in the queue.
-     */
-    _restartRequest: function (i)
-    {
-        var req = this._requests[i];
-        if (req.dead === null) {
-            req.dead = new Date();
-        }
-
-        this._processRequest(i);
-    },
-
-    /** PrivateFunction: _processRequest
-     *  _Private_ function to process a request in the queue.
-     *
-     *  This function takes requests off the queue and sends them and
-     *  restarts dead requests.
-     *
-     *  Parameters:
-     *    (Integer) i - The index of the request in the queue.
-     */
-    _processRequest: function (i)
-    {
-        var req = this._requests[i];
-        var reqStatus = -1;
-
-        try {
-            if (req.xhr.readyState == 4) {
-                reqStatus = req.xhr.status;
-            }
-        } catch (e) {
-            Strophe.error("caught an error in _requests[" + i +
-                          "], reqStatus: " + reqStatus);
-        }
-
-        if (typeof(reqStatus) == "undefined") {
-            reqStatus = -1;
-        }
-
-        // make sure we limit the number of retries
-        if (req.sends > this.maxRetries) {
-            this._onDisconnectTimeout();
-            return;
-        }
-
-        var time_elapsed = req.age();
-        var primaryTimeout = (!isNaN(time_elapsed) &&
-                              time_elapsed > Math.floor(Strophe.TIMEOUT * this.wait));
-        var secondaryTimeout = (req.dead !== null &&
-                                req.timeDead() > Math.floor(Strophe.SECONDARY_TIMEOUT * this.wait));
-        var requestCompletedWithServerError = (req.xhr.readyState == 4 &&
-                                               (reqStatus < 1 ||
-                                                reqStatus >= 500));
-        if (primaryTimeout || secondaryTimeout ||
-            requestCompletedWithServerError) {
-            if (secondaryTimeout) {
-                Strophe.error("Request " +
-                              this._requests[i].id +
-                              " timed out (secondary), restarting");
-            }
-            req.abort = true;
-            req.xhr.abort();
-            // setting to null fails on IE6, so set to empty function
-            req.xhr.onreadystatechange = function () {};
-            this._requests[i] = new Strophe.Request(req.xmlData,
-                                                    req.origFunc,
-                                                    req.rid,
-                                                    req.sends);
-            req = this._requests[i];
-        }
-
-        if (req.xhr.readyState === 0) {
-            Strophe.debug("request id " + req.id +
-                          "." + req.sends + " posting");
-
-            try {
-                req.xhr.open("POST", this.service, true);
-            } catch (e2) {
-                Strophe.error("XHR open failed.");
-                if (!this.connected) {
-                    this._changeConnectStatus(Strophe.Status.CONNFAIL,
-                                              "bad-service");
-                }
-                this.disconnect();
-                return;
-            }
-
-            // Fires the XHR request -- may be invoked immediately
-            // or on a gradually expanding retry window for reconnects
-            var sendFunc = function () {
-                req.date = new Date();
-                req.xhr.send(req.data);
-            };
-
-            // Implement progressive backoff for reconnects --
-            // First retry (send == 1) should also be instantaneous
-            if (req.sends > 1) {
-                // Using a cube of the retry number creates a nicely
-                // expanding retry window
-                var backoff = Math.min(Math.floor(Strophe.TIMEOUT * this.wait),
-                                       Math.pow(req.sends, 3)) * 1000;
-                setTimeout(sendFunc, backoff);
-            } else {
-                sendFunc();
-            }
-
-            req.sends++;
-
-            if (this.xmlOutput !== Strophe.Connection.prototype.xmlOutput) {
-                this.xmlOutput(req.xmlData);
-            }
-            if (this.rawOutput !== Strophe.Connection.prototype.rawOutput) {
-                this.rawOutput(req.data);
-            }
-        } else {
-            Strophe.debug("_processRequest: " +
-                          (i === 0 ? "first" : "second") +
-                          " request has readyState of " +
-                          req.xhr.readyState);
-        }
-    },
-
-    /** PrivateFunction: _throttledRequestHandler
-     *  _Private_ function to throttle requests to the connection window.
-     *
-     *  This function makes sure we don't send requests so fast that the
-     *  request ids overflow the connection window in the case that one
-     *  request died.
-     */
-    _throttledRequestHandler: function ()
-    {
-        if (!this._requests) {
-            Strophe.debug("_throttledRequestHandler called with " +
-                          "undefined requests");
-        } else {
-            Strophe.debug("_throttledRequestHandler called with " +
-                          this._requests.length + " requests");
-        }
-
-        if (!this._requests || this._requests.length === 0) {
-            return;
-        }
-
-        if (this._requests.length > 0) {
-            this._processRequest(0);
-        }
-
-        if (this._requests.length > 1 &&
-            Math.abs(this._requests[0].rid -
-                     this._requests[1].rid) < this.window) {
-            this._processRequest(1);
-        }
-    },
-
-    /** PrivateFunction: _onRequestStateChange
-     *  _Private_ handler for Strophe.Request state changes.
-     *
-     *  This function is called when the XMLHttpRequest readyState changes.
-     *  It contains a lot of error handling logic for the many ways that
-     *  requests can fail, and calls the request callback when requests
-     *  succeed.
-     *
-     *  Parameters:
-     *    (Function) func - The handler for the request.
-     *    (Strophe.Request) req - The request that is changing readyState.
-     */
-    _onRequestStateChange: function (func, req)
-    {
-        Strophe.debug("request id " + req.id +
-                      "." + req.sends + " state changed to " +
-                      req.xhr.readyState);
-
-        if (req.abort) {
-            req.abort = false;
-            return;
-        }
-
-        // request complete
-        var reqStatus;
-        if (req.xhr.readyState == 4) {
-            reqStatus = 0;
-            try {
-                reqStatus = req.xhr.status;
-            } catch (e) {
-                // ignore errors from undefined status attribute.  works
-                // around a browser bug
-            }
-
-            if (typeof(reqStatus) == "undefined") {
-                reqStatus = 0;
-            }
-
-            if (this.disconnecting) {
-                if (reqStatus >= 400) {
-                    this._hitError(reqStatus);
-                    return;
-                }
-            }
-
-            var reqIs0 = (this._requests[0] == req);
-            var reqIs1 = (this._requests[1] == req);
-
-            if ((reqStatus > 0 && reqStatus < 500) || req.sends > 5) {
-                // remove from internal queue
-                this._removeRequest(req);
-                Strophe.debug("request id " +
-                              req.id +
-                              " should now be removed");
-            }
-
-            // request succeeded
-            if (reqStatus == 200) {
-                // if request 1 finished, or request 0 finished and request
-                // 1 is over Strophe.SECONDARY_TIMEOUT seconds old, we need to
-                // restart the other - both will be in the first spot, as the
-                // completed request has been removed from the queue already
-                if (reqIs1 ||
-                    (reqIs0 && this._requests.length > 0 &&
-                     this._requests[0].age() > Math.floor(Strophe.SECONDARY_TIMEOUT * this.wait))) {
-                    this._restartRequest(0);
-                }
-                // call handler
-                Strophe.debug("request id " +
-                              req.id + "." +
-                              req.sends + " got 200");
-                func(req);
-                this.errors = 0;
-            } else {
-                Strophe.error("request id " +
-                              req.id + "." +
-                              req.sends + " error " + reqStatus +
-                              " happened");
-                if (reqStatus === 0 ||
-                    (reqStatus >= 400 && reqStatus < 600) ||
-                    reqStatus >= 12000) {
-                    this._hitError(reqStatus);
-                    if (reqStatus >= 400 && reqStatus < 500) {
-                        this._changeConnectStatus(Strophe.Status.DISCONNECTING,
-                                                  null);
-                        this._doDisconnect();
-                    }
-                }
-            }
-
-            if (!((reqStatus > 0 && reqStatus < 500) ||
-                  req.sends > 5)) {
-                this._throttledRequestHandler();
-            }
-        }
-    },
-
-    /** PrivateFunction: _hitError
-     *  _Private_ function to handle the error count.
-     *
-     *  Requests are resent automatically until their error count reaches
-     *  5.  Each time an error is encountered, this function is called to
-     *  increment the count and disconnect if the count is too high.
-     *
-     *  Parameters:
-     *    (Integer) reqStatus - The request status.
-     */
-    _hitError: function (reqStatus)
-    {
-        this.errors++;
-        Strophe.warn("request errored, status: " + reqStatus +
-                     ", number of errors: " + this.errors);
-        if (this.errors > 4) {
-            this._onDisconnectTimeout();
-        }
-    },
-
     /** PrivateFunction: _doDisconnect
      *  _Private_ function to disconnect.
      *
@@ -2591,18 +2209,17 @@ Strophe.Connection.prototype = {
      */
     _doDisconnect: function ()
     {
+        // Cancel Disconnect Timeout
+        if (this._disconnectTimeout !== null) {
+            this.deleteTimedHandler(this._disconnectTimeout);
+            this._disconnectTimeout = null;
+        }
+
         Strophe.info("_doDisconnect was called");
+        this._proto._doDisconnect();
+
         this.authenticated = false;
         this.disconnecting = false;
-        this.sid = null;
-        this.streamId = null;
-        this.rid = Math.floor(Math.random() * 4294967295);
-
-        // tell the parent we disconnected
-        if (this.connected) {
-            this._changeConnectStatus(Strophe.Status.DISCONNECTED, null);
-            this.connected = false;
-        }
 
         // delete handlers
         this.handlers = [];
@@ -2611,6 +2228,10 @@ Strophe.Connection.prototype = {
         this.removeHandlers = [];
         this.addTimeds = [];
         this.addHandlers = [];
+
+        // tell the parent we disconnected
+        this._changeConnectStatus(Strophe.Status.DISCONNECTED, null);
+        this.connected = false;
     },
 
     /** PrivateFunction: _dataRecv
@@ -2623,22 +2244,27 @@ Strophe.Connection.prototype = {
      *
      *  Parameters:
      *    (Strophe.Request) req - The request that has data ready.
+     *    (string) req - The stanza a raw string (optiona).
      */
-    _dataRecv: function (req)
+    _dataRecv: function (req, raw)
     {
-        try {
-            var elem = req.getResponse();
-        } catch (e) {
-            if (e != "parsererror") { throw e; }
-            this.disconnect("strophe-parsererror");
-        }
+        Strophe.info("_dataRecv called");
+        var elem = this._proto._reqToData(req);
         if (elem === null) { return; }
 
         if (this.xmlInput !== Strophe.Connection.prototype.xmlInput) {
-            this.xmlInput(elem);
+            if (elem.nodeName === this._proto.strip && elem.childNodes.length) {
+                this.xmlInput(elem.childNodes[0]);
+            } else {
+                this.xmlInput(elem);
+            }
         }
         if (this.rawInput !== Strophe.Connection.prototype.rawInput) {
-            this.rawInput(Strophe.serialize(elem));
+            if (raw) {
+                this.rawInput(raw);
+            } else {
+                this.rawInput(Strophe.serialize(elem));
+            }
         }
 
         // remove handlers scheduled for deletion
@@ -2657,9 +2283,7 @@ Strophe.Connection.prototype = {
         }
 
         // handle graceful disconnect
-        if (this.disconnecting && this._requests.length === 0) {
-            this.deleteTimedHandler(this._disconnectTimeout);
-            this._disconnectTimeout = null;
+        if (this.disconnecting && this._proto._emptyQueue()) {
             this._doDisconnect();
             return;
         }
@@ -2683,7 +2307,7 @@ Strophe.Connection.prototype = {
             } else {
                 this._changeConnectStatus(Strophe.Status.CONNFAIL, "unknown");
             }
-            this.disconnect();
+            this.disconnect('unknown stream-error');
             return;
         }
 
@@ -2708,41 +2332,18 @@ Strophe.Connection.prototype = {
                         that.handlers.push(hand);
                     }
                 } catch(e) {
-                    //if the handler throws an exception, we consider it as false
+                    // if the handler throws an exception, we consider it as false
+                    Strophe.warn('Removing Strophe handlers due to uncaught exception: ' + e.message);
                 }
             }
         });
     },
 
-    /** PrivateFunction: _sendTerminate
-     *  _Private_ function to send initial disconnect sequence.
-     *
-     *  This is the first step in a graceful disconnect.  It sends
-     *  the BOSH server a terminate body and includes an unavailable
-     *  presence if authentication has completed.
+
+    /** Attribute: mechanisms
+     *  SASL Mechanisms available for Conncection.
      */
-    _sendTerminate: function ()
-    {
-        Strophe.info("_sendTerminate was called");
-        var body = this._buildBody().attrs({type: "terminate"});
-
-        if (this.authenticated) {
-            body.c('presence', {
-                xmlns: Strophe.NS.CLIENT,
-                type: 'unavailable'
-            });
-        }
-
-        this.disconnecting = true;
-
-        var req = new Strophe.Request(body.tree(),
-                                      this._onRequestStateChange.bind(
-                                          this, this._dataRecv.bind(this)),
-                                      body.tree().getAttribute("rid"));
-
-        this._requests.push(req);
-        this._throttledRequestHandler();
-    },
+    mechanisms: {},
 
     /** PrivateFunction: _connect_cb
      *  _Private_ handler for initial connection request.
@@ -2760,59 +2361,41 @@ Strophe.Connection.prototype = {
      *      Useful for plugins with their own xmpp connect callback (when their)
      *      want to do something special).
      */
-    _connect_cb: function (req, _callback)
+    _connect_cb: function (req, _callback, raw)
     {
         Strophe.info("_connect_cb was called");
 
         this.connected = true;
-        var bodyWrap = req.getResponse();
+
+        var bodyWrap = this._proto._reqToData(req);
         if (!bodyWrap) { return; }
 
         if (this.xmlInput !== Strophe.Connection.prototype.xmlInput) {
-            this.xmlInput(bodyWrap);
+            if (bodyWrap.nodeName === this._proto.strip && bodyWrap.childNodes.length) {
+                this.xmlInput(bodyWrap.childNodes[0]);
+            } else {
+                this.xmlInput(bodyWrap);
+            }
         }
         if (this.rawInput !== Strophe.Connection.prototype.rawInput) {
-            this.rawInput(Strophe.serialize(bodyWrap));
+            if (raw) {
+                this.rawInput(raw);
+            } else {
+                this.rawInput(Strophe.serialize(bodyWrap));
+            }
         }
 
-        var typ = bodyWrap.getAttribute("type");
-        var cond, conflict;
-        if (typ !== null && typ == "terminate") {
-            // an error occurred
-            cond = bodyWrap.getAttribute("condition");
-            conflict = bodyWrap.getElementsByTagName("conflict");
-            if (cond !== null) {
-                if (cond == "remote-stream-error" && conflict.length > 0) {
-                    cond = "conflict";
-                }
-                this._changeConnectStatus(Strophe.Status.CONNFAIL, cond);
-            } else {
-                this._changeConnectStatus(Strophe.Status.CONNFAIL, "unknown");
-            }
+        var conncheck = this._proto._connect_cb(bodyWrap);
+        if (conncheck === Strophe.Status.CONNFAIL) {
             return;
         }
-
-        // check to make sure we don't overwrite these if _connect_cb is
-        // called multiple times in the case of missing stream:features
-        if (!this.sid) {
-            this.sid = bodyWrap.getAttribute("sid");
-        }
-        if (!this.stream_id) {
-            this.stream_id = bodyWrap.getAttribute("authid");
-        }
-        var wind = bodyWrap.getAttribute('requests');
-        if (wind) { this.window = parseInt(wind, 10); }
-        var hold = bodyWrap.getAttribute('hold');
-        if (hold) { this.hold = parseInt(hold, 10); }
-        var wait = bodyWrap.getAttribute('wait');
-        if (wait) { this.wait = parseInt(wait, 10); }
 
         this._authentication.sasl_scram_sha1 = false;
         this._authentication.sasl_plain = false;
         this._authentication.sasl_digest_md5 = false;
         this._authentication.sasl_anonymous = false;
-        this._authentication.legacy_auth = false;
 
+        this._authentication.legacy_auth = false;
 
         // Check for the stream:features tag
         var hasFeatures = bodyWrap.getElementsByTagName("stream:features").length > 0;
@@ -2820,45 +2403,28 @@ Strophe.Connection.prototype = {
             hasFeatures = bodyWrap.getElementsByTagName("features").length > 0;
         }
         var mechanisms = bodyWrap.getElementsByTagName("mechanism");
-        var i, mech, auth_str, hashed_auth_str,
-            found_authentication = false;
-        if (hasFeatures && mechanisms.length > 0) {
-            var missmatchedmechs = 0;
+        var matched = [];
+        var i, mech, found_authentication = false;
+        if (!hasFeatures) {
+            this._proto._no_auth_received(_callback);
+            return;
+        }
+        if (mechanisms.length > 0) {
             for (i = 0; i < mechanisms.length; i++) {
                 mech = Strophe.getText(mechanisms[i]);
-                if (mech == 'SCRAM-SHA-1') {
-                    this._authentication.sasl_scram_sha1 = true;
-                } else if (mech == 'DIGEST-MD5') {
-                    this._authentication.sasl_digest_md5 = true;
-                } else if (mech == 'PLAIN') {
-                    this._authentication.sasl_plain = true;
-                } else if (mech == 'ANONYMOUS') {
-                    this._authentication.sasl_anonymous = true;
-                } else missmatchedmechs++;
+                if (this.mechanisms[mech]) matched.push(this.mechanisms[mech]);
             }
-
-            this._authentication.legacy_auth =
-                bodyWrap.getElementsByTagName("auth").length > 0;
-
-            found_authentication =
-                this._authentication.legacy_auth ||
-                missmatchedmechs < mechanisms.length;
         }
+        this._authentication.legacy_auth =
+            bodyWrap.getElementsByTagName("auth").length > 0;
+        found_authentication = this._authentication.legacy_auth ||
+            matched.length > 0;
         if (!found_authentication) {
-            _callback = _callback || this._connect_cb;
-            // we didn't get stream:features yet, so we need wait for it
-            // by sending a blank poll request
-            var body = this._buildBody();
-            this._requests.push(
-                new Strophe.Request(body.tree(),
-                                    this._onRequestStateChange.bind(
-                                        this, _callback.bind(this)),
-                                    body.tree().getAttribute("rid")));
-            this._throttledRequestHandler();
+            this._proto._no_auth_received(_callback);
             return;
         }
         if (this.do_authentication !== false)
-            this.authenticate();
+            this.authenticate(matched);
     },
 
     /** Function: authenticate
@@ -2871,313 +2437,97 @@ Strophe.Connection.prototype = {
      *  the code will fall back to legacy authentication.
      *
      */
-    authenticate: function ()
+    authenticate: function (matched)
     {
-        if (Strophe.getNodeFromJid(this.jid) === null &&
-            this._authentication.sasl_anonymous) {
-            this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
-            this._sasl_success_handler = this._addSysHandler(
-                this._sasl_success_cb.bind(this), null,
-                "success", null, null);
-            this._sasl_failure_handler = this._addSysHandler(
-                this._sasl_failure_cb.bind(this), null,
-                "failure", null, null);
+      var i;
+      // Sorting matched mechanisms according to priority.
+      for (i = 0; i < matched.length - 1; ++i) {
+        var higher = i;
+        for (var j = i + 1; j < matched.length; ++j) {
+          if (matched[j].prototype.priority > matched[higher].prototype.priority) {
+            higher = j;
+          }
+        }
+        if (higher != i) {
+          var swap = matched[i];
+          matched[i] = matched[higher];
+          matched[higher] = swap;
+        }
+      }
 
-            this.send($build("auth", {
-                xmlns: Strophe.NS.SASL,
-                mechanism: "ANONYMOUS"
-            }).tree());
-        } else if (Strophe.getNodeFromJid(this.jid) === null) {
+      // run each mechanism
+      var mechanism_found = false;
+      for (i = 0; i < matched.length; ++i) {
+        if (!matched[i].test(this)) continue;
+
+        this._sasl_success_handler = this._addSysHandler(
+          this._sasl_success_cb.bind(this), null,
+          "success", null, null);
+        this._sasl_failure_handler = this._addSysHandler(
+          this._sasl_failure_cb.bind(this), null,
+          "failure", null, null);
+        this._sasl_challenge_handler = this._addSysHandler(
+          this._sasl_challenge_cb.bind(this), null,
+          "challenge", null, null);
+
+        this._sasl_mechanism = new matched[i]();
+        this._sasl_mechanism.onStart(this);
+
+        var request_auth_exchange = $build("auth", {
+          xmlns: Strophe.NS.SASL,
+          mechanism: this._sasl_mechanism.name
+        });
+
+        if (this._sasl_mechanism.isClientFirst) {
+          var response = this._sasl_mechanism.onChallenge(this, null);
+          request_auth_exchange.t(Base64.encode(response));
+        }
+
+        this.send(request_auth_exchange.tree());
+
+        mechanism_found = true;
+        break;
+      }
+
+      if (!mechanism_found) {
+        // if none of the mechanism worked
+        if (Strophe.getNodeFromJid(this.jid) === null) {
             // we don't have a node, which is required for non-anonymous
             // client connections
             this._changeConnectStatus(Strophe.Status.CONNFAIL,
                                       'x-strophe-bad-non-anon-jid');
-            this.disconnect();
-        } else if (this._authentication.sasl_scram_sha1) {
-            var cnonce = MD5.hexdigest(Math.random() * 1234567890);
-
-            var auth_str = "n=" + Strophe.getNodeFromJid(this.jid);
-            auth_str += ",r=";
-            auth_str += cnonce;
-
-            this._sasl_data["cnonce"] = cnonce;
-            this._sasl_data["client-first-message-bare"] = auth_str;
-
-            auth_str = "n,," + auth_str;
-
-            this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
-            this._sasl_challenge_handler = this._addSysHandler(
-                this._sasl_scram_challenge_cb.bind(this), null,
-                "challenge", null, null);
-            this._sasl_failure_handler = this._addSysHandler(
-                this._sasl_failure_cb.bind(this), null,
-                "failure", null, null);
-
-            this.send($build("auth", {
-                xmlns: Strophe.NS.SASL,
-                mechanism: "SCRAM-SHA-1"
-            }).t(Base64.encode(auth_str)).tree());
-        } else if (this._authentication.sasl_digest_md5) {
-            this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
-            this._sasl_challenge_handler = this._addSysHandler(
-                this._sasl_digest_challenge1_cb.bind(this), null,
-                "challenge", null, null);
-            this._sasl_failure_handler = this._addSysHandler(
-                this._sasl_failure_cb.bind(this), null,
-                "failure", null, null);
-
-            this.send($build("auth", {
-                xmlns: Strophe.NS.SASL,
-                mechanism: "DIGEST-MD5"
-            }).tree());
-        } else if (this._authentication.sasl_plain) {
-            // Build the plain auth string (barejid null
-            // username null password) and base 64 encoded.
-            auth_str = Strophe.getBareJidFromJid(this.jid);
-            auth_str = auth_str + "\u0000";
-            auth_str = auth_str + Strophe.getNodeFromJid(this.jid);
-            auth_str = auth_str + "\u0000";
-            auth_str = auth_str + this.pass;
-
-            this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
-            this._sasl_success_handler = this._addSysHandler(
-                this._sasl_success_cb.bind(this), null,
-                "success", null, null);
-            this._sasl_failure_handler = this._addSysHandler(
-                this._sasl_failure_cb.bind(this), null,
-                "failure", null, null);
-
-            hashed_auth_str = Base64.encode(auth_str);
-            this.send($build("auth", {
-                xmlns: Strophe.NS.SASL,
-                mechanism: "PLAIN"
-            }).t(hashed_auth_str).tree());
+            this.disconnect('x-strophe-bad-non-anon-jid');
         } else {
-            this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
-            this._addSysHandler(this._auth1_cb.bind(this), null, null,
-                                null, "_auth_1");
+          // fall back to legacy authentication
+          this._changeConnectStatus(Strophe.Status.AUTHENTICATING, null);
+          this._addSysHandler(this._auth1_cb.bind(this), null, null,
+                              null, "_auth_1");
 
-            this.send($iq({
-                type: "get",
-                to: this.domain,
-                id: "_auth_1"
-            }).c("query", {
-                xmlns: Strophe.NS.AUTH
-            }).c("username", {}).t(Strophe.getNodeFromJid(this.jid)).tree());
+          this.send($iq({
+            type: "get",
+            to: this.domain,
+            id: "_auth_1"
+          }).c("query", {
+            xmlns: Strophe.NS.AUTH
+          }).c("username", {}).t(Strophe.getNodeFromJid(this.jid)).tree());
         }
+      }
+
     },
 
-    /** PrivateFunction: _sasl_digest_challenge1_cb
-     *  _Private_ handler for DIGEST-MD5 SASL authentication.
-     *
-     *  Parameters:
-     *    (XMLElement) elem - The challenge stanza.
-     *
-     *  Returns:
-     *    false to remove the handler.
-     */
-    _sasl_digest_challenge1_cb: function (elem)
-    {
-        var attribMatch = /([a-z]+)=("[^"]+"|[^,"]+)(?:,|$)/;
+    _sasl_challenge_cb: function(elem) {
+      var challenge = Base64.decode(Strophe.getText(elem));
+      var response = this._sasl_mechanism.onChallenge(this, challenge);
 
-        var challenge = Base64.decode(Strophe.getText(elem));
-        var cnonce = MD5.hexdigest("" + (Math.random() * 1234567890));
-        var realm = "";
-        var host = null;
-        var nonce = "";
-        var qop = "";
-        var matches;
+      var stanza = $build('response', {
+          xmlns: Strophe.NS.SASL
+      });
+      if (response !== "") {
+        stanza.t(Base64.encode(response));
+      }
+      this.send(stanza.tree());
 
-        // remove unneeded handlers
-        this.deleteHandler(this._sasl_failure_handler);
-
-        while (challenge.match(attribMatch)) {
-            matches = challenge.match(attribMatch);
-            challenge = challenge.replace(matches[0], "");
-            matches[2] = matches[2].replace(/^"(.+)"$/, "$1");
-            switch (matches[1]) {
-            case "realm":
-                realm = matches[2];
-                break;
-            case "nonce":
-                nonce = matches[2];
-                break;
-            case "qop":
-                qop = matches[2];
-                break;
-            case "host":
-                host = matches[2];
-                break;
-            }
-        }
-
-        var digest_uri = "xmpp/" + this.domain;
-        if (host !== null) {
-            digest_uri = digest_uri + "/" + host;
-        }
-
-        var A1 = MD5.hash(Strophe.getNodeFromJid(this.jid) +
-                          ":" + realm + ":" + this.pass) +
-            ":" + nonce + ":" + cnonce;
-        var A2 = 'AUTHENTICATE:' + digest_uri;
-
-        var responseText = "";
-        responseText += 'username=' +
-            this._quote(Strophe.getNodeFromJid(this.jid)) + ',';
-        responseText += 'realm=' + this._quote(realm) + ',';
-        responseText += 'nonce=' + this._quote(nonce) + ',';
-        responseText += 'cnonce=' + this._quote(cnonce) + ',';
-        responseText += 'nc="00000001",';
-        responseText += 'qop="auth",';
-        responseText += 'digest-uri=' + this._quote(digest_uri) + ',';
-        responseText += 'response=' + this._quote(
-            MD5.hexdigest(MD5.hexdigest(A1) + ":" +
-                          nonce + ":00000001:" +
-                          cnonce + ":auth:" +
-                          MD5.hexdigest(A2))) + ',';
-        responseText += 'charset="utf-8"';
-
-        this._sasl_challenge_handler = this._addSysHandler(
-            this._sasl_digest_challenge2_cb.bind(this), null,
-            "challenge", null, null);
-        this._sasl_success_handler = this._addSysHandler(
-            this._sasl_success_cb.bind(this), null,
-            "success", null, null);
-        this._sasl_failure_handler = this._addSysHandler(
-            this._sasl_failure_cb.bind(this), null,
-            "failure", null, null);
-
-        this.send($build('response', {
-            xmlns: Strophe.NS.SASL
-        }).t(Base64.encode(responseText)).tree());
-
-        return false;
-    },
-
-    /** PrivateFunction: _quote
-     *  _Private_ utility function to backslash escape and quote strings.
-     *
-     *  Parameters:
-     *    (String) str - The string to be quoted.
-     *
-     *  Returns:
-     *    quoted string
-     */
-    _quote: function (str)
-    {
-        return '"' + str.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
-        //" end string workaround for emacs
-    },
-
-
-    /** PrivateFunction: _sasl_digest_challenge2_cb
-     *  _Private_ handler for second step of DIGEST-MD5 SASL authentication.
-     *
-     *  Parameters:
-     *    (XMLElement) elem - The challenge stanza.
-     *
-     *  Returns:
-     *    false to remove the handler.
-     */
-    _sasl_digest_challenge2_cb: function (elem)
-    {
-        // remove unneeded handlers
-        this.deleteHandler(this._sasl_success_handler);
-        this.deleteHandler(this._sasl_failure_handler);
-
-        this._sasl_success_handler = this._addSysHandler(
-            this._sasl_success_cb.bind(this), null,
-            "success", null, null);
-        this._sasl_failure_handler = this._addSysHandler(
-            this._sasl_failure_cb.bind(this), null,
-            "failure", null, null);
-        this.send($build('response', {xmlns: Strophe.NS.SASL}).tree());
-        return false;
-    },
-
-    /** PrivateFunction: _sasl_scram_challenge_cb
-     *  _Private_ handler for SCRAM-SHA-1 SASL authentication.
-     *
-     *  Parameters:
-     *    (XMLElement) elem - The challenge stanza.
-     *
-     *  Returns:
-     *    false to remove the handler.
-     */
-    _sasl_scram_challenge_cb: function (elem)
-    {
-        var nonce, salt, iter, Hi, U, U_old;
-        var clientKey, serverKey, clientSignature;
-        var responseText = "c=biws,";
-        var challenge = Base64.decode(Strophe.getText(elem));
-        var authMessage = this._sasl_data["client-first-message-bare"] + "," +
-            challenge + ",";
-        var cnonce = this._sasl_data["cnonce"]
-        var attribMatch = /([a-z]+)=([^,]+)(,|$)/;
-
-        // remove unneeded handlers
-        this.deleteHandler(this._sasl_failure_handler);
-
-        while (challenge.match(attribMatch)) {
-            matches = challenge.match(attribMatch);
-            challenge = challenge.replace(matches[0], "");
-            switch (matches[1]) {
-            case "r":
-                nonce = matches[2];
-                break;
-            case "s":
-                salt = matches[2];
-                break;
-            case "i":
-                iter = matches[2];
-                break;
-            }
-        }
-
-        if (!(nonce.substr(0, cnonce.length) === cnonce)) {
-            this._sasl_data = [];
-            return this._sasl_failure_cb(null);
-        }
-
-        responseText += "r=" + nonce;
-        authMessage += responseText;
-
-        salt = Base64.decode(salt);
-        salt += "\0\0\0\1";
-
-        Hi = U_old = core_hmac_sha1(this.pass, salt);
-        for (i = 1; i < iter; i++) {
-            U = core_hmac_sha1(this.pass, binb2str(U_old));
-            for (k = 0; k < 5; k++) {
-                Hi[k] ^= U[k];
-            }
-            U_old = U;
-        }
-        Hi = binb2str(Hi);
-
-        clientKey = core_hmac_sha1(Hi, "Client Key");
-        serverKey = str_hmac_sha1(Hi, "Server Key");
-        clientSignature = core_hmac_sha1(str_sha1(binb2str(clientKey)), authMessage);
-        this._sasl_data["server-signature"] = b64_hmac_sha1(serverKey, authMessage);
-
-        for (k = 0; k < 5; k++) {
-            clientKey[k] ^= clientSignature[k];
-        }
-
-        responseText += ",p=" + Base64.encode(binb2str(clientKey));
-
-        this._sasl_success_handler = this._addSysHandler(
-            this._sasl_success_cb.bind(this), null,
-            "success", null, null);
-        this._sasl_failure_handler = this._addSysHandler(
-            this._sasl_failure_cb.bind(this), null,
-            "failure", null, null);
-
-        this.send($build('response', {
-            xmlns: Strophe.NS.SASL
-        }).t(Base64.encode(responseText)).tree());
-
-        return false;
+      return true;
     },
 
     /** PrivateFunction: _auth1_cb
@@ -3194,6 +2544,7 @@ Strophe.Connection.prototype = {
      *  Returns:
      *    false to remove the handler.
      */
+    /* jshint unused:false */
     _auth1_cb: function (elem)
     {
         // build plaintext auth iq
@@ -3218,6 +2569,7 @@ Strophe.Connection.prototype = {
 
         return false;
     },
+    /* jshint unused:true */
 
     /** PrivateFunction: _sasl_success_cb
      *  _Private_ handler for succesful SASL authentication.
@@ -3234,25 +2586,29 @@ Strophe.Connection.prototype = {
             var serverSignature;
             var success = Base64.decode(Strophe.getText(elem));
             var attribMatch = /([a-z]+)=([^,]+)(,|$)/;
-            matches = success.match(attribMatch);
+            var matches = success.match(attribMatch);
             if (matches[1] == "v") {
                 serverSignature = matches[2];
             }
-	    if (serverSignature != this._sasl_data["server-signature"]) {
-		// remove old handlers
-		this.deleteHandler(this._sasl_failure_handler);
-		this._sasl_failure_handler = null;
-		if (this._sasl_challenge_handler) {
-			this.deleteHandler(this._sasl_challenge_handler);
-			this._sasl_challenge_handler = null;
-		}
 
-		this._sasl_data = [];
-		return this._sasl_failure_cb(null);
-	    }
-	}
+            if (serverSignature != this._sasl_data["server-signature"]) {
+              // remove old handlers
+              this.deleteHandler(this._sasl_failure_handler);
+              this._sasl_failure_handler = null;
+              if (this._sasl_challenge_handler) {
+                this.deleteHandler(this._sasl_challenge_handler);
+                this._sasl_challenge_handler = null;
+              }
 
-	Strophe.info("SASL authentication succeeded.");
+              this._sasl_data = {};
+              return this._sasl_failure_cb(null);
+            }
+        }
+
+        Strophe.info("SASL authentication succeeded.");
+
+        if(this._sasl_mechanism)
+          this._sasl_mechanism.onSuccess();
 
         // remove old handlers
         this.deleteHandler(this._sasl_failure_handler);
@@ -3333,10 +2689,10 @@ Strophe.Connection.prototype = {
     {
         if (elem.getAttribute("type") == "error") {
             Strophe.info("SASL binding failed.");
-			var conflict = elem.getElementsByTagName("conflict"), condition;
-			if (conflict.length > 0) {
-				condition = 'conflict';
-			}
+            var conflict = elem.getElementsByTagName("conflict"), condition;
+            if (conflict.length > 0) {
+                condition = 'conflict';
+            }
             this._changeConnectStatus(Strophe.Status.AUTHFAIL, condition);
             return false;
         }
@@ -3404,6 +2760,7 @@ Strophe.Connection.prototype = {
      *  Returns:
      *    false to remove the handler.
      */
+    /* jshint unused:false */
     _sasl_failure_cb: function (elem)
     {
         // delete unneeded handlers
@@ -3416,9 +2773,12 @@ Strophe.Connection.prototype = {
             this._sasl_challenge_handler = null;
         }
 
+        if(this._sasl_mechanism)
+          this._sasl_mechanism.onFailure();
         this._changeConnectStatus(Strophe.Status.AUTHFAIL, null);
         return false;
     },
+    /* jshint unused:true */
 
     /** PrivateFunction: _auth2_cb
      *  _Private_ handler to finish legacy authentication.
@@ -3439,7 +2799,7 @@ Strophe.Connection.prototype = {
             this._changeConnectStatus(Strophe.Status.CONNECTED, null);
         } else if (elem.getAttribute("type") == "error") {
             this._changeConnectStatus(Strophe.Status.AUTHFAIL, null);
-            this.disconnect();
+            this.disconnect('authentication failed');
         }
 
         return false;
@@ -3499,16 +2859,7 @@ Strophe.Connection.prototype = {
     {
         Strophe.info("_onDisconnectTimeout was called");
 
-        // cancel all remaining requests and clear the queue
-        var req;
-        while (this._requests.length > 0) {
-            req = this._requests.pop();
-            req.abort = true;
-            req.xhr.abort();
-            // jslint complains, but this is fine. setting to empty func
-            // is necessary for IE6
-            req.xhr.onreadystatechange = function () {};
-        }
+        this._proto._onDisconnectTimeout();
 
         // actually disconnect
         this._doDisconnect();
@@ -3560,62 +2911,9 @@ Strophe.Connection.prototype = {
         }
         this.timedHandlers = newList;
 
-        var body, time_elapsed;
-
-        // if no requests are in progress, poll
-        if (this.authenticated && this._requests.length === 0 &&
-            this._data.length === 0 && !this.disconnecting) {
-            Strophe.info("no requests during idle cycle, sending " +
-                         "blank request");
-            this._data.push(null);
-        }
-
-        if (this._requests.length < 2 && this._data.length > 0 &&
-            !this.paused) {
-            body = this._buildBody();
-            for (i = 0; i < this._data.length; i++) {
-                if (this._data[i] !== null) {
-                    if (this._data[i] === "restart") {
-                        body.attrs({
-                            to: this.domain,
-                            "xml:lang": "en",
-                            "xmpp:restart": "true",
-                            "xmlns:xmpp": Strophe.NS.BOSH
-                        });
-                    } else {
-                        body.cnode(this._data[i]).up();
-                    }
-                }
-            }
-            delete this._data;
-            this._data = [];
-            this._requests.push(
-                new Strophe.Request(body.tree(),
-                                    this._onRequestStateChange.bind(
-                                        this, this._dataRecv.bind(this)),
-                                    body.tree().getAttribute("rid")));
-            this._processRequest(this._requests.length - 1);
-        }
-
-        if (this._requests.length > 0) {
-            time_elapsed = this._requests[0].age();
-            if (this._requests[0].dead !== null) {
-                if (this._requests[0].timeDead() >
-                    Math.floor(Strophe.SECONDARY_TIMEOUT * this.wait)) {
-                    this._throttledRequestHandler();
-                }
-            }
-
-            if (time_elapsed > Math.floor(Strophe.TIMEOUT * this.wait)) {
-                Strophe.warn("Request " +
-                             this._requests[0].id +
-                             " timed out, over " + Math.floor(Strophe.TIMEOUT * this.wait) +
-                             " seconds since last activity");
-                this._throttledRequestHandler();
-            }
-        }
-
         clearTimeout(this._idleTimeout);
+
+        this._proto._onIdle();
 
         // reactivate the timer only if connected
         if (this.connected) {
@@ -3627,6 +2925,370 @@ Strophe.Connection.prototype = {
 if (callback) {
     callback(Strophe, $build, $msg, $iq, $pres);
 }
+
+/** Class: Strophe.SASLMechanism
+ *
+ *  encapsulates SASL authentication mechanisms.
+ *
+ *  User code may override the priority for each mechanism or disable it completely.
+ *  See <priority> for information about changing priority and <test> for informatian on
+ *  how to disable a mechanism.
+ *
+ *  By default, all mechanisms are enabled and the priorities are
+ *
+ *  SCRAM-SHA1 - 40
+ *  DIGEST-MD5 - 30
+ *  Plain - 20
+ */
+
+/**
+ * PrivateConstructor: Strophe.SASLMechanism
+ * SASL auth mechanism abstraction.
+ *
+ *  Parameters:
+ *    (String) name - SASL Mechanism name.
+ *    (Boolean) isClientFirst - If client should send response first without challenge.
+ *    (Number) priority - Priority.
+ *
+ *  Returns:
+ *    A new Strophe.SASLMechanism object.
+ */
+Strophe.SASLMechanism = function(name, isClientFirst, priority) {
+  /** PrivateVariable: name
+   *  Mechanism name.
+   */
+  this.name = name;
+  /** PrivateVariable: isClientFirst
+   *  If client sends response without initial server challenge.
+   */
+  this.isClientFirst = isClientFirst;
+  /** Variable: priority
+   *  Determines which <SASLMechanism> is chosen for authentication (Higher is better).
+   *  Users may override this to prioritize mechanisms differently.
+   *
+   *  In the default configuration the priorities are
+   *
+   *  SCRAM-SHA1 - 40
+   *  DIGEST-MD5 - 30
+   *  Plain - 20
+   *
+   *  Example: (This will cause Strophe to choose the mechanism that the server sent first)
+   *
+   *  > Strophe.SASLMD5.priority = Strophe.SASLSHA1.priority;
+   *
+   *  See <SASL mechanisms> for a list of available mechanisms.
+   *
+   */
+  this.priority = priority;
+};
+
+Strophe.SASLMechanism.prototype = {
+  /**
+   *  Function: test
+   *  Checks if mechanism able to run.
+   *  To disable a mechanism, make this return false;
+   *
+   *  To disable plain authentication run
+   *  > Strophe.SASLPlain.test = function() {
+   *  >   return false;
+   *  > }
+   *
+   *  See <SASL mechanisms> for a list of available mechanisms.
+   *
+   *  Parameters:
+   *    (Strophe.Connection) connection - Target Connection.
+   *
+   *  Returns:
+   *    (Boolean) If mechanism was able to run.
+   */
+  /* jshint unused:false */
+  test: function(connection) {
+    return true;
+  },
+  /* jshint unused:true */
+
+  /** PrivateFunction: onStart
+   *  Called before starting mechanism on some connection.
+   *
+   *  Parameters:
+   *    (Strophe.Connection) connection - Target Connection.
+   */
+  onStart: function(connection)
+  {
+    this._connection = connection;
+  },
+
+  /** PrivateFunction: onChallenge
+   *  Called by protocol implementation on incoming challenge. If client is
+   *  first (isClientFirst == true) challenge will be null on the first call.
+   *
+   *  Parameters:
+   *    (Strophe.Connection) connection - Target Connection.
+   *    (String) challenge - current challenge to handle.
+   *
+   *  Returns:
+   *    (String) Mechanism response.
+   */
+  /* jshint unused:false */
+  onChallenge: function(connection, challenge) {
+    throw new Error("You should implement challenge handling!");
+  },
+  /* jshint unused:true */
+
+  /** PrivateFunction: onFailure
+   *  Protocol informs mechanism implementation about SASL failure.
+   */
+  onFailure: function() {
+    this._connection = null;
+  },
+
+  /** PrivateFunction: onSuccess
+   *  Protocol informs mechanism implementation about SASL success.
+   */
+  onSuccess: function() {
+    this._connection = null;
+  }
+};
+
+  /** Constants: SASL mechanisms
+   *  Available authentication mechanisms
+   *
+   *  Strophe.SASLAnonymous - SASL Anonymous authentication.
+   *  Strophe.SASLPlain - SASL Plain authentication.
+   *  Strophe.SASLMD5 - SASL Digest-MD5 authentication
+   *  Strophe.SASLSHA1 - SASL SCRAM-SHA1 authentication
+   */
+
+// Building SASL callbacks
+
+/** PrivateConstructor: SASLAnonymous
+ *  SASL Anonymous authentication.
+ */
+Strophe.SASLAnonymous = function() {};
+
+Strophe.SASLAnonymous.prototype = new Strophe.SASLMechanism("ANONYMOUS", false, 10);
+
+Strophe.SASLAnonymous.test = function(connection) {
+  return connection.authcid === null;
+};
+
+Strophe.Connection.prototype.mechanisms[Strophe.SASLAnonymous.prototype.name] = Strophe.SASLAnonymous;
+
+/** PrivateConstructor: SASLPlain
+ *  SASL Plain authentication.
+ */
+Strophe.SASLPlain = function() {};
+
+Strophe.SASLPlain.prototype = new Strophe.SASLMechanism("PLAIN", true, 20);
+
+Strophe.SASLPlain.test = function(connection) {
+  return connection.authcid !== null;
+};
+
+Strophe.SASLPlain.prototype.onChallenge = function(connection) {
+  var auth_str = connection.authzid;
+  auth_str = auth_str + "\u0000";
+  auth_str = auth_str + connection.authcid;
+  auth_str = auth_str + "\u0000";
+  auth_str = auth_str + connection.pass;
+  return auth_str;
+};
+
+Strophe.Connection.prototype.mechanisms[Strophe.SASLPlain.prototype.name] = Strophe.SASLPlain;
+
+/** PrivateConstructor: SASLSHA1
+ *  SASL SCRAM SHA 1 authentication.
+ */
+Strophe.SASLSHA1 = function() {};
+
+/* TEST:
+ * This is a simple example of a SCRAM-SHA-1 authentication exchange
+ * when the client doesn't support channel bindings (username 'user' and
+ * password 'pencil' are used):
+ *
+ * C: n,,n=user,r=fyko+d2lbbFgONRv9qkxdawL
+ * S: r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,s=QSXCR+Q6sek8bf92,
+ * i=4096
+ * C: c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,
+ * p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts=
+ * S: v=rmF9pqV8S7suAoZWja4dJRkFsKQ=
+ *
+ */
+
+Strophe.SASLSHA1.prototype = new Strophe.SASLMechanism("SCRAM-SHA-1", true, 40);
+
+Strophe.SASLSHA1.test = function(connection) {
+  return connection.authcid !== null;
+};
+
+Strophe.SASLSHA1.prototype.onChallenge = function(connection, challenge, test_cnonce) {
+  var cnonce = test_cnonce || MD5.hexdigest(Math.random() * 1234567890);
+
+  var auth_str = "n=" + connection.authcid;
+  auth_str += ",r=";
+  auth_str += cnonce;
+
+  connection._sasl_data.cnonce = cnonce;
+  connection._sasl_data["client-first-message-bare"] = auth_str;
+
+  auth_str = "n,," + auth_str;
+
+  this.onChallenge = function (connection, challenge)
+  {
+    var nonce, salt, iter, Hi, U, U_old, i, k;
+    var clientKey, serverKey, clientSignature;
+    var responseText = "c=biws,";
+    var authMessage = connection._sasl_data["client-first-message-bare"] + "," +
+      challenge + ",";
+    var cnonce = connection._sasl_data.cnonce;
+    var attribMatch = /([a-z]+)=([^,]+)(,|$)/;
+
+    while (challenge.match(attribMatch)) {
+      var matches = challenge.match(attribMatch);
+      challenge = challenge.replace(matches[0], "");
+      switch (matches[1]) {
+      case "r":
+        nonce = matches[2];
+        break;
+      case "s":
+        salt = matches[2];
+        break;
+      case "i":
+        iter = matches[2];
+        break;
+      }
+    }
+
+    if (nonce.substr(0, cnonce.length) !== cnonce) {
+      connection._sasl_data = {};
+      return connection._sasl_failure_cb();
+    }
+
+    responseText += "r=" + nonce;
+    authMessage += responseText;
+
+    salt = Base64.decode(salt);
+    salt += "\x00\x00\x00\x01";
+
+    Hi = U_old = core_hmac_sha1(connection.pass, salt);
+    for (i = 1; i < iter; i++) {
+      U = core_hmac_sha1(connection.pass, binb2str(U_old));
+      for (k = 0; k < 5; k++) {
+        Hi[k] ^= U[k];
+      }
+      U_old = U;
+    }
+    Hi = binb2str(Hi);
+
+    clientKey = core_hmac_sha1(Hi, "Client Key");
+    serverKey = str_hmac_sha1(Hi, "Server Key");
+    clientSignature = core_hmac_sha1(str_sha1(binb2str(clientKey)), authMessage);
+    connection._sasl_data["server-signature"] = b64_hmac_sha1(serverKey, authMessage);
+
+    for (k = 0; k < 5; k++) {
+      clientKey[k] ^= clientSignature[k];
+    }
+
+    responseText += ",p=" + Base64.encode(binb2str(clientKey));
+
+    return responseText;
+  }.bind(this);
+
+  return auth_str;
+};
+
+Strophe.Connection.prototype.mechanisms[Strophe.SASLSHA1.prototype.name] = Strophe.SASLSHA1;
+
+/** PrivateConstructor: SASLMD5
+ *  SASL DIGEST MD5 authentication.
+ */
+Strophe.SASLMD5 = function() {};
+
+Strophe.SASLMD5.prototype = new Strophe.SASLMechanism("DIGEST-MD5", false, 30);
+
+Strophe.SASLMD5.test = function(connection) {
+  return connection.authcid !== null;
+};
+
+/** PrivateFunction: _quote
+ *  _Private_ utility function to backslash escape and quote strings.
+ *
+ *  Parameters:
+ *    (String) str - The string to be quoted.
+ *
+ *  Returns:
+ *    quoted string
+ */
+Strophe.SASLMD5.prototype._quote = function (str)
+  {
+    return '"' + str.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    //" end string workaround for emacs
+  };
+
+
+Strophe.SASLMD5.prototype.onChallenge = function(connection, challenge, test_cnonce) {
+  var attribMatch = /([a-z]+)=("[^"]+"|[^,"]+)(?:,|$)/;
+  var cnonce = test_cnonce || MD5.hexdigest("" + (Math.random() * 1234567890));
+  var realm = "";
+  var host = null;
+  var nonce = "";
+  var qop = "";
+  var matches;
+
+  while (challenge.match(attribMatch)) {
+    matches = challenge.match(attribMatch);
+    challenge = challenge.replace(matches[0], "");
+    matches[2] = matches[2].replace(/^"(.+)"$/, "$1");
+    switch (matches[1]) {
+    case "realm":
+      realm = matches[2];
+      break;
+    case "nonce":
+      nonce = matches[2];
+      break;
+    case "qop":
+      qop = matches[2];
+      break;
+    case "host":
+      host = matches[2];
+      break;
+    }
+  }
+
+  var digest_uri = connection.servtype + "/" + connection.domain;
+  if (host !== null) {
+    digest_uri = digest_uri + "/" + host;
+  }
+
+  var A1 = MD5.hash(connection.authcid +
+                    ":" + realm + ":" + this._connection.pass) +
+    ":" + nonce + ":" + cnonce;
+  var A2 = 'AUTHENTICATE:' + digest_uri;
+
+  var responseText = "";
+  responseText += 'charset=utf-8,';
+  responseText += 'username=' +
+    this._quote(connection.authcid) + ',';
+  responseText += 'realm=' + this._quote(realm) + ',';
+  responseText += 'nonce=' + this._quote(nonce) + ',';
+  responseText += 'nc=00000001,';
+  responseText += 'cnonce=' + this._quote(cnonce) + ',';
+  responseText += 'digest-uri=' + this._quote(digest_uri) + ',';
+  responseText += 'response=' + MD5.hexdigest(MD5.hexdigest(A1) + ":" +
+                                              nonce + ":00000001:" +
+                                              cnonce + ":auth:" +
+                                              MD5.hexdigest(A2)) + ",";
+  responseText += 'qop=auth';
+
+  this.onChallenge = function ()
+  {
+    return "";
+  }.bind(this);
+
+  return responseText;
+};
+
+Strophe.Connection.prototype.mechanisms[Strophe.SASLMD5.prototype.name] = Strophe.SASLMD5;
 
 })(function () {
     window.Strophe = arguments[0];

@@ -2,13 +2,16 @@ SHELL=/bin/bash
 
 SRC_DIR = src
 DOC_DIR = doc
+DOC_TEMP = doc-temp
 PLUGIN_DIR = plugins
 NDPROJ_DIR = ndproj
 
 BASE_FILES = $(SRC_DIR)/base64.js \
 	$(SRC_DIR)/sha1.js \
 	$(SRC_DIR)/md5.js \
-	$(SRC_DIR)/core.js
+	$(SRC_DIR)/core.js \
+	$(SRC_DIR)/bosh.js \
+	$(SRC_DIR)/websocket.js
 
 STROPHE = strophe.js
 STROPHE_MIN = strophe.min.js
@@ -63,7 +66,9 @@ doc:
 	@@echo "Building Strophe documentation..."
 	@@if [ ! -d $(NDPROJ_DIR) ]; then mkdir $(NDPROJ_DIR); fi
 	@@if [ ! -d $(DOC_DIR) ]; then mkdir $(DOC_DIR); fi
-	@@NaturalDocs -q -i $(SRC_DIR) -i $(PLUGINS_DIR) -o html $(DOC_DIR) -p $(NDPROJ_DIR)
+	@@if [ ! -d $(DOC_TEMP) ]; then mkdir $(DOC_TEMP); fi
+	@@cp $(STROPHE) $(DOC_TEMP)
+	@@naturaldocs -r -ro -q -i $(DOC_TEMP) -i $(PLUGIN_DIR) -o html $(DOC_DIR) -p $(NDPROJ_DIR)
 	@@echo "Documentation built."
 	@@echo
 
@@ -88,8 +93,10 @@ clean:
 	@@rm -f $(PLUGIN_FILES_MIN)
 	@@echo "Minified plugins cleaned."
 	@@echo "Cleaning documentation..."
-	@@rm -rf $(NDPROJ_DIR) $(DOC_DIR)
+	@@rm -rf $(NDPROJ_DIR) $(DOC_DIR) $(DOC_TEMP)
 	@@echo "Documentation cleaned."
+	@@rm -rf strophejs-$(VERSION) strophejs-$(VERSION).zip strophejs-$(VERSION).tar.gz
+	@@echo "Release cleaned."
 	@@echo
 
 .PHONY: all normal min doc release clean
