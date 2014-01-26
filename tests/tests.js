@@ -336,4 +336,13 @@ $(document).ready(function () {
     equal(response, "", "checking second auth challenge");
     saslmd5.onSuccess();
   });
+
+  module("Browser globals");
+
+  test("Base64", 3, function()
+  {
+    equal(typeof window.Base64, 'object');
+    equal(typeof window.Base64.decode, 'function');
+    equal(typeof window.Base64.encode, 'function');
+  });
 });
