@@ -352,4 +352,15 @@ $(document).ready(function () {
     equal(typeof window.MD5.hexdigest, 'function');
     equal(typeof window.MD5.hash, 'function');
   });
+
+  test("SHA1", 7, function()
+  {
+     equal(typeof SHA1, 'object');
+     equal(typeof SHA1.b64_sha1, 'function');
+     equal(typeof SHA1.str_sha1, 'function');
+     equal(typeof SHA1.b64_hmac_sha1, 'function');
+     equal(typeof SHA1.str_hmac_sha1, 'function');
+     equal(typeof SHA1.core_hmac_sha1, 'function');
+     equal(typeof SHA1.binb2str, 'function');
+  });
 });

@@ -7,9 +7,7 @@
 
 /* jshint undef: true, unused: true:, noarg: true, latedef: true */
 /*global document, window, setTimeout, clearTimeout, console,
-    ActiveXObject, Base64, MD5, DOMParser */
-// from sha1.js
-/*global core_hmac_sha1, binb2str, str_hmac_sha1, str_sha1, b64_hmac_sha1*/
+    ActiveXObject, Base64, MD5, DOMParser, SHA1 */
 
 /** File: strophe.js
  *  A JavaScript library for XMPP BOSH/XMPP over Websocket.
@@ -3170,26 +3168,26 @@ Strophe.SASLSHA1.prototype.onChallenge = function(connection, challenge, test_cn
     salt = Base64.decode(salt);
     salt += "\x00\x00\x00\x01";
 
-    Hi = U_old = core_hmac_sha1(connection.pass, salt);
+    Hi = U_old = SHA1.core_hmac_sha1(connection.pass, salt);
     for (i = 1; i < iter; i++) {
-      U = core_hmac_sha1(connection.pass, binb2str(U_old));
+      U = SHA1.core_hmac_sha1(connection.pass, SHA1.binb2str(U_old));
       for (k = 0; k < 5; k++) {
         Hi[k] ^= U[k];
       }
       U_old = U;
     }
-    Hi = binb2str(Hi);
+    Hi = SHA1.binb2str(Hi);
 
-    clientKey = core_hmac_sha1(Hi, "Client Key");
-    serverKey = str_hmac_sha1(Hi, "Server Key");
-    clientSignature = core_hmac_sha1(str_sha1(binb2str(clientKey)), authMessage);
-    connection._sasl_data["server-signature"] = b64_hmac_sha1(serverKey, authMessage);
+    clientKey = SHA1.core_hmac_sha1(Hi, "Client Key");
+    serverKey = SHA1.str_hmac_sha1(Hi, "Server Key");
+    clientSignature = SHA1.core_hmac_sha1(SHA1.str_sha1(SHA1.binb2str(clientKey)), authMessage);
+    connection._sasl_data["server-signature"] = SHA1.b64_hmac_sha1(serverKey, authMessage);
 
     for (k = 0; k < 5; k++) {
       clientKey[k] ^= clientSignature[k];
     }
 
-    responseText += ",p=" + Base64.encode(binb2str(clientKey));
+    responseText += ",p=" + Base64.encode(SHA1.binb2str(clientKey));
 
     return responseText;
   }.bind(this);
