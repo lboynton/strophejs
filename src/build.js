@@ -14,7 +14,7 @@
         // AMD. Register as an anonymous module.
         define(['./core'], function(Strophe) {
             // But also create global
-            return (root.$build = factory(root.Strophe));
+            return (root.$build = factory(Strophe));
         });
     } else {
         // Browser globals
